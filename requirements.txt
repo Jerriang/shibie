@@ -1,0 +1,8 @@
+opencv-python>=4.8.0
+numpy>=1.23.0
+insightface>=0.7.3
+onnxruntime-gpu>=1.16.0; platform_system != "Darwin"
+onnxruntime>=1.16.0
+PyQt5>=5.15.9
+ultralytics>=8.2.0
+pandas>=2.0.0
