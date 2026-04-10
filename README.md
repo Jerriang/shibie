@@ -3,6 +3,7 @@
 本次继续完善，补上部署与运维落地能力：**环境化数据库配置 + Docker Compose 一键拉起 + DB 健康检查 + 签名生成脚本**。
 
 ## 新增能力
+- 美观管理界面：`/`（登录、审计检索、异常追踪、健康态看板）
 - JWT + RBAC：`admin/teacher/student/auditor`
 - 班级管理：`/classes`、`/classes/enroll`
 - 设备管理：`/devices`（登记教室设备与共享密钥）
@@ -35,6 +36,7 @@ docker compose up --build
 ```
 
 服务：
+- 管理界面: http://127.0.0.1:8000/
 - API: http://127.0.0.1:8000/docs
 - Postgres: 5432
 - Redis: 6379

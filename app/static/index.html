@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>智能课堂人脸签到系统</title>
+  <style>
+    :root{--bg:#0f172a;--card:#111827;--muted:#94a3b8;--text:#e2e8f0;--ok:#10b981;--warn:#f59e0b;--err:#ef4444;--primary:#3b82f6}
+    *{box-sizing:border-box} body{margin:0;font-family:Inter,Segoe UI,system-ui;background:linear-gradient(120deg,#0b1022,#111827 40%,#0b1022);color:var(--text)}
+    .wrap{max-width:1200px;margin:0 auto;padding:24px}
+    .head{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+    .title{font-size:24px;font-weight:700}
+    .subtitle{color:var(--muted);font-size:13px}
+    .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+    .card{background:rgba(17,24,39,.9);border:1px solid #1f2937;border-radius:14px;padding:14px;box-shadow:0 8px 24px rgba(0,0,0,.25)}
+    .kpi{font-size:26px;font-weight:700}.klabel{color:var(--muted);font-size:12px}
+    .layout{display:grid;grid-template-columns:320px 1fr;gap:12px}
+    .panel{background:rgba(17,24,39,.92);border:1px solid #1f2937;border-radius:14px;padding:14px}
+    input,button,select{width:100%;padding:10px;border-radius:10px;border:1px solid #334155;background:#0b1220;color:var(--text)}
+    button{background:linear-gradient(90deg,#2563eb,#4f46e5);border:none;cursor:pointer;font-weight:600}
+    button.secondary{background:#1f2937}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+    table{width:100%;border-collapse:collapse;font-size:13px}
+    th,td{border-bottom:1px solid #1f2937;padding:8px;text-align:left}
+    th{color:#93c5fd}
+    .tag{padding:2px 8px;border-radius:999px;font-size:12px}
+    .ok{background:rgba(16,185,129,.2);color:#6ee7b7}.warn{background:rgba(245,158,11,.2);color:#fcd34d}.err{background:rgba(239,68,68,.2);color:#fca5a5}
+    .muted{color:var(--muted)}
+    @media(max-width:980px){.grid{grid-template-columns:repeat(2,1fr)}.layout{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <div>
+      <div class="title">智能课堂人脸签到系统 · 管理台</div>
+      <div class="subtitle">成品级演示界面（签到统计 / 审计检索 / 异常追踪）</div>
+    </div>
+    <div id="authState" class="muted">未登录</div>
+  </div>
+
+  <div class="grid">
+    <div class="card"><div class="klabel">系统健康</div><div id="kHealth" class="kpi">-</div></div>
+    <div class="card"><div class="klabel">最近审计数</div><div id="kAudit" class="kpi">-</div></div>
+    <div class="card"><div class="klabel">异常事件数</div><div id="kExp" class="kpi">-</div></div>
+    <div class="card"><div class="klabel">审计链校验</div><div id="kChain" class="kpi">-</div></div>
+  </div>
+
+  <div class="layout">
+    <div class="panel">
+      <h3>登录</h3>
+      <div class="row">
+        <input id="loginUserId" placeholder="用户ID（可选）" />
+        <input id="loginStudentNo" placeholder="学工号（可选）" />
+      </div>
+      <div style="height:8px"></div>
+      <input id="loginPwd" type="password" placeholder="密码" />
+      <div style="height:8px"></div>
+      <button onclick="doLogin()">获取 Token</button>
+      <div style="height:8px"></div>
+      <button class="secondary" onclick="refreshAll()">刷新仪表盘</button>
+
+      <hr style="border-color:#1f2937;margin:14px 0"/>
+      <h3>审计筛选</h3>
+      <input id="fAction" placeholder="action（可选）" />
+      <div style="height:8px"></div>
+      <input id="fTarget" placeholder="target_type（可选）" />
+      <div style="height:8px"></div>
+      <button onclick="loadAudit()">查询审计</button>
+
+      <hr style="border-color:#1f2937;margin:14px 0"/>
+      <h3>异常筛选</h3>
+      <input id="fEvent" placeholder="event_type（可选）" />
+      <div style="height:8px"></div>
+      <button onclick="loadExceptions()">查询异常</button>
+    </div>
+
+    <div class="panel">
+      <h3>审计日志</h3>
+      <table>
+        <thead><tr><th>ID</th><th>操作</th><th>对象</th><th>操作人</th><th>时间</th></tr></thead>
+        <tbody id="auditBody"></tbody>
+      </table>
+
+      <h3 style="margin-top:16px">异常事件</h3>
+      <table>
+        <thead><tr><th>ID</th><th>Session</th><th>类型</th><th>详情</th><th>时间</th></tr></thead>
+        <tbody id="expBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+let token = "";
+const API = "";
+
+async function api(path, opts={}){
+  const headers = Object.assign({"Content-Type":"application/json"}, opts.headers||{});
+  if(token) headers["Authorization"] = `Bearer ${token}`;
+  const r = await fetch(API+path, {...opts, headers});
+  if(!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+async function doLogin(){
+  try{
+    const payload = {password: document.getElementById('loginPwd').value};
+    const uid = document.getElementById('loginUserId').value.trim();
+    const sno = document.getElementById('loginStudentNo').value.trim();
+    if(uid) payload.user_id = Number(uid); if(sno) payload.student_no = sno;
+    const d = await api('/auth/login',{method:'POST',body:JSON.stringify(payload)});
+    token = d.access_token;
+    document.getElementById('authState').textContent = '已登录';
+    await refreshAll();
+  }catch(e){ alert('登录失败: '+e.message); }
+}
+
+async function refreshAll(){
+  try{
+    const h = await api('/health');
+    document.getElementById('kHealth').innerHTML = `<span class='tag ok'>${h.db}</span>`;
+    const v = await api('/audit-logs/verify');
+    document.getElementById('kChain').innerHTML = v.ok ? `<span class='tag ok'>通过</span>` : `<span class='tag err'>断裂@${v.broken_at}</span>`;
+    await loadAudit();
+    await loadExceptions();
+  }catch(e){ console.warn(e); }
+}
+
+async function loadAudit(){
+  try{
+    const a = document.getElementById('fAction').value.trim();
+    const t = document.getElementById('fTarget').value.trim();
+    const qs = new URLSearchParams({limit:'20'});
+    if(a) qs.set('action',a); if(t) qs.set('target_type',t);
+    const rows = await api('/audit-logs?'+qs.toString());
+    document.getElementById('kAudit').textContent = rows.length;
+    document.getElementById('auditBody').innerHTML = rows.map(r=>`<tr><td>${r.id}</td><td>${r.action}</td><td>${r.target_type}:${r.target_id}</td><td>${r.operator_id??'-'}</td><td>${new Date(r.created_at).toLocaleString()}</td></tr>`).join('');
+  }catch(e){ console.warn(e); }
+}
+
+async function loadExceptions(){
+  try{
+    const eventType = document.getElementById('fEvent').value.trim();
+    const qs = new URLSearchParams({limit:'20'});
+    if(eventType) qs.set('event_type',eventType);
+    const rows = await api('/exceptions?'+qs.toString());
+    document.getElementById('kExp').textContent = rows.length;
+    document.getElementById('expBody').innerHTML = rows.map(r=>`<tr><td>${r.id}</td><td>${r.session_id}</td><td><span class='tag warn'>${r.type}</span></td><td>${r.detail}</td><td>${new Date(r.created_at).toLocaleString()}</td></tr>`).join('');
+  }catch(e){ console.warn(e); }
+}
+
+refreshAll();
+</script>
+</body>
+</html>

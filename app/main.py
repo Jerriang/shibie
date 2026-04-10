@@ -1,8 +1,10 @@
+from pathlib import Path
 from datetime import UTC, datetime
 
 from fastapi import Depends, FastAPI, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy import desc
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 
 from .config import settings
@@ -60,9 +62,18 @@ from .api.auth import router as auth_router
 from .api.audit import router as audit_router
 from .api.system import router as system_router
 
-app = FastAPI(title="智能课堂人脸签到系统 API", version="0.4.0")
+app = FastAPI(title="智能课堂人脸签到系统 API", version="1.0.0")
 Base.metadata.create_all(bind=engine)
 checkin_limiter = SlidingWindowRateLimiter(settings.checkin_rate_limit_per_minute)
+STATIC_DIR = Path(__file__).resolve().parent / "static"
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+
+@app.get("/", include_in_schema=False)
+def home():
+    return FileResponse(STATIC_DIR / "index.html")
+
+
 app.include_router(system_router)
 app.include_router(auth_router)
 app.include_router(audit_router)
